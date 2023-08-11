@@ -5,127 +5,57 @@ const VoiceNoteTranscription = () => {
   const [transcription, setTranscription] = useState('');
   const [voiceNoteUrl, setVoiceNoteUrl] = useState(null);
 
-  const convertAACtoWAV = async (inputFile) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-
-      reader.onloadend = async () => {
-        try {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          const audioContext = new AudioContext();
-          const audioBuffer = await audioContext.decodeAudioData(reader.result);
-          const offlineContext = new OfflineAudioContext({
-            numberOfChannels: 1,
-            length: audioBuffer.length,
-            sampleRate: audioBuffer.sampleRate,
-          });
-
-          const source = offlineContext.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(offlineContext.destination);
-          source.start();
-
-          offlineContext.oncomplete = async (event) => {
-            const wavBuffer = event.renderedBuffer;
-            const blob = new Blob([new Uint8Array(wavBuffer.getChannelData(0))], { type: 'audio/wav' });
-            resolve(blob);
-          };
-
-          offlineContext.startRendering();
-        } catch (error) {
-          console.error('Error during AAC to WAV conversion:', error);
-          resolve(null);
-        }
-      };
-
-      reader.readAsArrayBuffer(inputFile);
-    });
-  };
-
   const handleVoiceNoteUpload = async (event) => {
     const file = event.target.files[0];
     if (file) {
-      const isAAC = file.type === 'audio/aac';
-      const convertedFile = isAAC ? await convertAACtoWAV(file) : file;
-      if (convertedFile) {
-        const voiceNoteURL = URL.createObjectURL(convertedFile);
-        setVoiceNoteUrl(voiceNoteURL);
-      }
+      const voiceNoteURL = URL.createObjectURL(file);
+      setVoiceNoteUrl(voiceNoteURL);
     }
   };
 
   const handleTranscribe = async () => {
-  if (!voiceNoteUrl) {
-    console.error('No voice note to transcribe.');
-    return;
-  }
+    if (!voiceNoteUrl) {
+      console.error('No voice note to transcribe.');
+      return;
+    }
 
-  console.log('Transcription process initiated...');
+    console.log('Transcription process initiated...');
 
-  try {
-    const response = await fetch(voiceNoteUrl);
-    const blob = await response.blob();
-    const reader = new FileReader();
+    try {
+      const audio = new Audio(voiceNoteUrl);
+      audio.play();
 
-    reader.onloadend = async () => {
-      console.log('Audio loaded, starting transcription...');
-      const audioBuffer = reader.result;
-      try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioContext = new AudioContext();
-        const audioBufferArrayBuffer = await audioContext.decodeAudioData(audioBuffer);
-        const audioBufferSourceNode = audioContext.createBufferSource();
-        audioBufferSourceNode.buffer = audioBufferArrayBuffer;
+      const recognizer = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognizer.lang = 'en-US';
+      recognizer.interimResults = true;
 
-        const recognizer = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognizer.lang = 'en-US';
-        recognizer.interimResults = true;
+      recognizer.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map((result) => result[0].transcript)
+          .join('');
 
-        let transcriptionResult = '';
-        let recognitionInProgress = true;
+        setTranscription(transcript);
+      };
 
-        recognizer.onresult = (event) => {
-          const transcript = Array.from(event.results)
-            .map((result) => result[0].transcript)
-            .join('');
-          transcriptionResult += transcript;
-          recognitionInProgress = true;
-        };
+      recognizer.onerror = (event) => {
+        console.error('Error during transcription:', event.error);
+      };
 
-        recognizer.onerror = (event) => {
-          console.error('Error during transcription:', event.error);
-        };
+      recognizer.onend = () => {
+        console.log('Transcription completed.');
+        recognizer.stop();
+      };
 
-        recognizer.onend = () => {
-          console.log('Transcription completed.');
-          setTranscription(transcriptionResult);
-          audioContext.close();
-        };
+      recognizer.start();
 
-        audioBufferSourceNode.connect(audioContext.destination);
-        audioBufferSourceNode.start();
-
-        recognizer.start();
-        audioBufferSourceNode.onended = () => {
-          // When audio playback completes, stop the recognition
-          recognizer.stop();
-        };
-      } catch (error) {
-        console.error('Error during transcription:', error);
-      }
-    };
-
-    reader.onerror = (event) => {
-      console.error('Error reading the uploaded audio:', event.error);
-    };
-
-    reader.readAsArrayBuffer(blob);
-  } catch (error) {
-    console.error('Error fetching the uploaded audio:', error);
-  }
-};
-
-    
+      // Stop the recognition after a certain time (adjust as needed)
+      setTimeout(() => {
+        recognizer.stop();
+      }, 5000); // Stop after 5 seconds (adjust as needed)
+    } catch (error) {
+      console.error('Error during transcription:', error);
+    }
+  };
 
   return (
     <div>
