@@ -65,7 +65,7 @@ const VoiceNoteTranscription = () => {
         <input
           type="file"
           accept="audio/*"
-          className="w-full p-2 border border-gray-300 rounded"
+          className="w-full p-2"
           onChange={handleVoiceNoteUpload}
         />
       </div>
