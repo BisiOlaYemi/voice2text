@@ -59,7 +59,7 @@ const VoiceNoteTranscription = () => {
 
   return (
     <div>
-      <h1>Voice Note to Text Transcription</h1>
+      <h1>Voice to Text Transcription</h1>
       <div className="mb-4">
         <label className="block font-bold mb-2">Upload Voice Note:</label>
         <input
